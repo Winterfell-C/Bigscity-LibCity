@@ -62,9 +62,19 @@ class HstlstmEncoder(AbstractTrajectoryEncoder):
             pre_lon = None
             pre_lat = None
             for index, point in enumerate(traj):
-                loc = point[4]
+                loc = point[5]  # 4应该是traj_id, 此处应该改成5, 代表location
                 now_time = parse_time(point[2])
-                lon, lat = parse_coordinate(self.geo.loc[self.geo['geo_id'] == loc].iloc[0]['coordinates'])
+                coordinate_list = self.geo.loc[self.geo['geo_id'] == loc].iloc[0]['coordinates']
+                coordinate_list = str(coordinate_list)[1:-1].split('], ')
+                coordinate_list = [item + ']' if not item.endswith(']') else item for item in coordinate_list]
+                lon_tot = 0
+                lat_tot = 0
+                for item in coordinate_list:
+                    lon, lat = parse_coordinate(item)
+                    lon_tot += lon
+                    lat_tot += lat
+                lon = lon_tot / len(coordinate_list)
+                lat = lat_tot / len(coordinate_list)
                 if index == 0:
                     if loc not in self.location2id:
                         self.location2id[loc] = self.loc_id
@@ -91,10 +101,10 @@ class HstlstmEncoder(AbstractTrajectoryEncoder):
             # 一条轨迹可以产生多条训练数据，根据第一个点预测第二个点，前两个点预测第三个点....
             for i in range(len(current_loc) - 1):
                 trace = []
-                target = current_loc[i+1]
-                trace.append(current_loc[:i+1])
-                trace.append(tim_interval[:i+1])
-                trace.append(dis[:i+1])
+                target = current_loc[i + 1]
+                trace.append(current_loc[:i + 1])
+                trace.append(tim_interval[:i + 1])
+                trace.append(dis[:i + 1])
                 trace.append(target)
                 trace.append(uid)
                 if negative_sample is not None:

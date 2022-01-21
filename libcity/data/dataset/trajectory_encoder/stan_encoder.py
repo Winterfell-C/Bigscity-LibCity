@@ -68,7 +68,7 @@ class StanEncoder(AbstractTrajectoryEncoder):
             current_traj = np.zeros((self.max_len + 1, 3), np.int32)
             current_tim = []
             for i, point in enumerate(traj):
-                loc = point[4]
+                loc = point[5]
                 now_time = parse_time(point[2])
                 if loc not in self.location2id:
                     self.location2id[loc] = self.loc_id
@@ -148,9 +148,29 @@ class StanEncoder(AbstractTrajectoryEncoder):
         poi_profile = pd.read_csv('./raw_data/{}/{}.geo'.format(self.config['dataset'], self.config['dataset']))
         mat = np.zeros((self.loc_id-1, self.loc_id-1))
         for i in tqdm(range(1, self.loc_id), desc='calculate poi distance matrix'):
-            lon_i, lat_i = parse_coordinate(poi_profile.iloc[self.id2location[i]]['coordinates'])
+            i_coordinate_list = poi_profile.iloc[self.id2location[i]]['coordinates']
+            i_coordinate_list = str(i_coordinate_list)[1:-1].split('], ')
+            i_coordinate_list = [item + ']' if not item.endswith(']') else item for item in i_coordinate_list]
+            i_lon_tot = 0
+            i_lat_tot = 0
+            for item in i_coordinate_list:
+                lon, lat = parse_coordinate(item)
+                i_lon_tot += lon
+                i_lat_tot += lat
+            lon_i = i_lon_tot / len(i_coordinate_list)
+            lat_i = i_lat_tot / len(i_coordinate_list)
             for j in range(1, self.loc_id):
-                lon_j, lat_j = parse_coordinate(poi_profile.iloc[self.id2location[j]]['coordinates'])
+                j_coordinate_list = poi_profile.iloc[self.id2location[j]]['coordinates']
+                j_coordinate_list = str(j_coordinate_list)[1:-1].split('], ')
+                j_coordinate_list = [item + ']' if not item.endswith(']') else item for item in j_coordinate_list]
+                j_lon_tot = 0
+                j_lat_tot = 0
+                for item in j_coordinate_list:
+                    lon, lat = parse_coordinate(item)
+                    j_lon_tot += lon
+                    j_lat_tot += lat
+                lon_j = j_lon_tot / len(j_coordinate_list)
+                lat_j = j_lat_tot / len(j_coordinate_list)
                 dis = haversine(lon_i, lat_i, lon_j, lat_j)
                 mat[i-1][j-1] = dis
                 if dis > self.ex[0]:

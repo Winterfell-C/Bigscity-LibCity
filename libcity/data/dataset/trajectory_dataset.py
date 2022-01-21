@@ -103,7 +103,16 @@ class TrajectoryDataset(AbstractDataset):
         filter_location = group_location[group_location['time'] >= self.config['min_checkins']]
         location_index = filter_location.index.tolist()
         traj = traj[traj['location'].isin(location_index)]
-        user_set = pd.unique(traj['entity_id'])
+        entity_id = traj['entity_id']
+        entity_id = [item for item in entity_id]
+        traj_id = traj['traj_id']
+        traj_id = [item for item in traj_id]
+        usrAndTraj = []
+        i = 1
+        while i != len(entity_id):
+            usrAndTraj.append((entity_id[i], traj_id[i]))
+            i = i + 1
+        user_set = pd.unique(usrAndTraj)  # 修改了这里
         res = {}
         min_session_len = self.config['min_session_len']
         max_session_len = self.config['max_session_len']
@@ -113,7 +122,8 @@ class TrajectoryDataset(AbstractDataset):
         if cut_method == 'time_interval':
             # 按照时间窗口进行切割
             for uid in tqdm(user_set, desc="cut and filter trajectory"):
-                usr_traj = traj[traj['entity_id'] == uid]
+                usr_traj = traj[traj['entity_id'] == uid[0]]
+                usr_traj = usr_traj[usr_traj['traj_id'] == uid[1]]
                 sessions = []  # 存放该用户所有的 session
                 session = []  # 单条轨迹
                 for index, row in usr_traj.iterrows():
@@ -138,7 +148,8 @@ class TrajectoryDataset(AbstractDataset):
         elif cut_method == 'same_date':
             # 将同一天的 check-in 划为一条轨迹
             for uid in tqdm(user_set, desc="cut and filter trajectory"):
-                usr_traj = traj[traj['entity_id'] == uid]
+                usr_traj = traj[traj['entity_id'] == uid[0]]
+                usr_traj = usr_traj[usr_traj['traj_id'] == uid[1]]
                 sessions = []  # 存放该用户所有的 session
                 session = []  # 单条轨迹
                 prev_date = None
@@ -166,7 +177,8 @@ class TrajectoryDataset(AbstractDataset):
             if max_session_len != window_size:
                 raise ValueError('the fixed length window is not equal to max_session_len')
             for uid in tqdm(user_set, desc="cut and filter trajectory"):
-                usr_traj = traj[traj['entity_id'] == uid]
+                usr_traj = traj[traj['entity_id'] == uid[0]]
+                usr_traj = usr_traj[usr_traj['traj_id'] == uid[1]]
                 sessions = []  # 存放该用户所有的 session
                 session = []  # 单条轨迹
                 for index, row in usr_traj.iterrows():
@@ -209,7 +221,10 @@ class TrajectoryDataset(AbstractDataset):
         """
         encoded_data = {}
         for uid in tqdm(data, desc="encoding trajectory"):
-            encoded_data[uid] = self.encoder.encode(int(uid), data[uid])
+            usr = str(uid).split(',')[0]
+            usr = usr.split('(')
+            usr_id = int(''.join(usr))
+            encoded_data[uid] = self.encoder.encode(int(usr_id), data[uid])
         self.encoder.gen_data_feature()
         return {
             'data_feature': self.encoder.data_feature,
